@@ -1,23 +1,54 @@
+"""
+show.py
+
+Module d'affichage et de visualisation pour l’exploration et l’analyse des données :
+- Affichage des spectres par pixel ou par espèce
+- Affichage des images hyperspectrales RVB
+- Affichage des cartes de classes (espèces d’arbres)
+- Visualisation des performances des modèles de classification
+
+Fonctionnalités :
+- Tracés des spectres moyens par espèce, avec incertitude à 95 %
+- Superposition RVB + vérité terrain
+- Matrices de confusion et courbes de scores comparatives (accuracy, f1)
+- Interface compatible avec `models.py` pour le diagnostic de performances
+
+Fonctions principales :
+    show_image_RVB()       : Affiche une image HSI selon bandes RVB
+    show_map_specie()      : Affiche la carte d'espèces (vérité terrain)
+    show_spectre_moy()     : Affiche un spectre moyen avec incertitude
+    show_scores()          : Affiche comparativement les scores des algos
+
+Projet : Classification d’espèces d’arbres par télédétection (HSI + LiDAR)
+"""
+
 #%% Librairies
 
 from data import *
-from pathlib import Path
+from models import *
 
-import laspy
-import tifffile
-import math as m
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
-from scipy.stats import sem, t
-from scipy.signal import savgol_filter
-
 #%% Fonctions révisées
 
-def show_spectre_pixel(pixel,f,pos,B):
+def show_spectre_pixel(pixel: np.ndarray,f: np.ndarray,pos: list[int],B: int):
+    
+    """
+    Affiche le spectre d’un pixel individuel sur un graphique.
+
+    Args:
+        pixel (np.ndarray): Intensités spectrales du pixel (160 bandes).
+        f (np.ndarray): Longueurs d’onde correspondantes (400–1000 nm).
+        pos (list[int]): Coordonnées [x, y] du pixel dans l’image.
+        B (int): Nombre total de bandes spectrales (typiquement 160).
+
+    Returns:
+        None
+    """
     
     x,y=pos
     plt.plot(f,pixel)
@@ -27,18 +58,19 @@ def show_spectre_pixel(pixel,f,pos,B):
     plt.show()
  
 
-def show_image_RVB(image_id,RVB, size=False, ax=None):
+def show_image_RVB(image_id: str,RVB: list[int], size=False, ax=None):
     
-    """Allow to visualize an image from an hsi array
-    
-    Also shows the 
-    It takes for arguments :
-        -hsi (array): the 3D file to visualize
-        -RVB (list): a list giving the band selected
-        -i (bool): (optional) if i=0 doesn't show the size of the image
-    Returns :
-        - 0 : if there is any error
-        - 1 : if the image has been displayed
+    """
+    Affiche une image hyperspectrale dans une composition couleur (RVB).
+
+    Args:
+        image_id (str): Identifiant de l’image.
+        RVB (list[int]): Indices des bandes à utiliser pour le rouge, vert et bleu.
+        size (bool): Si True, affiche la taille de l’image (H, W, B).
+        ax (matplotlib.axes.Axes, optional): Axe sur lequel afficher l’image.
+
+    Returns:
+        None
     """
     
     hsi=HSI(image_id)
@@ -65,16 +97,19 @@ def show_image_RVB(image_id,RVB, size=False, ax=None):
         ax.set_title(f"Image n°{image_id} RVB")
         
      
-def show_map_specie(image_id, ax=None, alph=None):
+def show_map_specie(image_id: str, ax=None, alph=None):
     
-    """Show the colored map of the tree distribution on an image.
-    Needs a .csv coming from the folder : data/raw/forest-plot-analysis/data/gt/ 
-    Arguments :
-        - filename (str): the name of the folder containing the datas for the map
-        - hsi (array): the image the map will be based on, necessarry for the dimensions
-    Returns :
-        - 0: if there is an error
-        - 1: if the map has been displayed"""
+    """
+    Affiche une carte couleur représentant les espèces d’arbres par pixel.
+
+    Args:
+        image_id (str): Identifiant de l’image.
+        ax (matplotlib.axes.Axes, optional): Axe sur lequel dessiner la carte.
+        alph (float, optional): Niveau de transparence pour superposition.
+
+    Returns:
+        None
+    """
     
     mapname="df_pixel"
     
@@ -108,51 +143,73 @@ def show_map_specie(image_id, ax=None, alph=None):
     ax.set_title(f"Color Map Image n°{image_id}")    
     
 
-def visualize_data(image_id,RVB,alpha=None):
+def visualize_data(image_id: str,RVB: list[int],alpha=None):
     
-    """"Cette fonction permet d'afficher une image dans la bande de couleur RVB désirée, ainsi que la carte couleur.
-    Arguments :
-    - image_id (str) : le nom de l'image à afficher
-    - RVB (list) : la bande de couleur à afficher
-    - alpha (None) : si un autre paramètre est donné que None, affiche l'image et la carte couleur superposées
+    """
+    Affiche côte à côte ou superposées :
+    - L’image en composition RVB
+    - La carte des espèces d’arbres
+
+    Args:
+        image_id (str): Identifiant de la parcelle/image.
+        RVB (list[int]): Bandes à utiliser pour la représentation RVB.
+        alpha (float or None): Si défini, applique une superposition semi-transparente.
+
+    Returns:
+        None
     """
     
     if alpha==None:
         fig, (ax1,ax2)=plt.subplots(1,2)
         show_image_RVB(image_id,RVB,0,ax1)
-        show_map(image_id,ax2)
+        show_map_specie(image_id,ax2)
         
     else:
         fig, ax = plt.subplots()
         show_image_RVB(image_id,RVB,0,ax)
-        show_map(image_id,ax,0.2)
+        show_map_specie(image_id,ax,0.2)
     
     plt.show()  
     
 
-def show_spectre_moy(specie, Sp_mean,Sp_std,f):
+def show_spectre_moy(specie: str, Sp_mean: np.ndarray, Sp_std: np.ndarray,f: np.ndarray, std=False):
     
-    """ Affiche la courbe moyenne de "specie" avec son incertitude. 
-    Arguments :
-    - specie (str) : le nom de l'espèce dont on veut afficher le spectre
-    - Sp_mean (array) : le spectre moyen de l'espèce à afficher
-    - Sp_std (array) : l'incertitde à95%
-    - f (array) : longueurs d'onde
+    """
+    Affiche le spectre moyen d’une espèce avec son intervalle de confiance.
+
+    Args:
+        specie (str): Code de l’espèce (ex: "PIAB").
+        Sp_mean (np.ndarray): Moyenne spectrale (160 valeurs).
+        Sp_std (np.ndarray): Incertitude à 95% (160 valeurs).
+        f (np.ndarray): Longueurs d’onde correspondantes.
+
+    Returns:
+        None
     """
     
-    plt.plot(f,Sp_mean,label=specie)
-    plt.fill_between(f,Sp_mean-Sp_std, Sp_mean+Sp_std,alpha=0.3)
+    plt.plot(f,Sp_mean, label=specie)
+    if std : 
+        plt.fill_between(f,Sp_mean-Sp_std, Sp_mean+Sp_std,alpha=0.3,label='Confiance à 95%')
     plt.title("Moyenne du spectre de l'espèce : "+specie)
+    plt.xlabel("Longueur d'onde (nm)")
+    plt.ylabel("Intensité relative")
+    plt.legend()
     plt.show()
     
 
-def show_spectre_img(d_Spe, f, ax, fill=True):
+def show_spectres_img(d_Spe: dict, f: np.ndarray, ax, fill=True):
     
-    """"Permet d'afficher tous les spectres moyens d'une image avec leur incertitude (ou non) sur le même graphe.
-    Arguments :
-    - d_spe (dico) : dictionnaire des espèces contenus dans une image
-    - f (array) : longueur d'onde
-    - ax (axe de plt) : le subplot sur lequel afficher les courbes
+    """
+    Affiche les spectres moyens de toutes les espèces d’une image.
+
+    Args:
+        d_Spe (dict): Dictionnaire {espèce: (moyenne, incertitude)}.
+        f (np.ndarray): Longueurs d’onde (160 bandes).
+        ax (matplotlib.axes.Axes): Sous-figure sur laquelle tracer.
+        fill (bool): Si True, ajoute l’enveloppe d’incertitude.
+
+    Returns:
+        None
     """
     
     for Spe in d_Spe :
@@ -161,55 +218,103 @@ def show_spectre_img(d_Spe, f, ax, fill=True):
             ax.fill_between(f,d_Spe[Spe][0]-d_Spe[Spe][1], d_Spe[Spe][0]+d_Spe[Spe][1],alpha=0.3)
 #           show_sp_curve(Spe,d_Spe[Spe][0],d_Spe[Spe][1],f)
 
-def test_pixel_norm(image_id,row,col):
+def test_pixel_norm(image_id: str,row: int,col: int):
     
-    """Permet de tester à quelle espèce un pixel appartient"""
+    """
+    Teste et affiche à quelle espèce appartient un pixel donné, via distance euclidienne.
+
+    Args:
+        image_id (str): Identifiant de l’image.
+        row (int): Ligne du pixel.
+        col (int): Colonne du pixel.
+
+    Returns:
+        None
+    """
     
     hsi=HSI(image_id)
-    d_spe,f=species_spectre_moy(image_id,hsi)
+    d_spe,f=show_spectre_moy(image_id,hsi)
     pixel=hsi[row][col]
-    Id,norm=sp_norm_dico(d_spe,pixel)
+    Id,norm=spectre_norm_dico(d_spe,pixel)
     print("Le pixel de coordonnées ",str((row,col))," correspond probablement à l'espèce :",Id,",avec une norme de :",str(norm))
 
 
+def show_moy_spectre(image_id: str):
+    
+    """
+    Affiche tous les spectres moyens des espèces d’une image.
 
-#%%
-    
-def show_moy_sp(image_id):
-    
-    """"Affiche toutes les courbes moyennes des espèces de l'image "image_id". """
+    Args:
+        image_id (str): Identifiant de la parcelle.
+
+    Returns:
+        None
+    """
     
     hsi=HSI(image_id)
     fig, ax=plt.subplots()
     
-    d_Spe,f=sp_species_moy(image_id,hsi)
+    d_Spe,f=species_spectre_moy(image_id,hsi)
     show_spectre_img(d_Spe,f,ax)
     ax.legend()
     plt.title(f"Spectre moyen des espèces sur le l'image {image_id}")
     plt.show()
-    
 
+    
 #%% Machine Learning
 
-def show_res(accuracy,classification_report,confusion_matrix):
+def show_res_Alg(accuracy,classification_report,confusion_matrix):
+    
+    """
+    Affiche les résultats de classification d’un modèle.
+
+    Args:
+        accuracy (float): Score d’exactitude.
+        classification_report (dict): Rapport détaillé des scores par classe.
+        confusion_matrix (np.ndarray): Matrice de confusion (classe réelle vs prédite).
+
+    Returns:
+        None
+    """
     
     print("Accuracy:", accuracy)
     print(classification_report)
     print(confusion_matrix)
     
+def show_scores(data_accuracy: dict, data_macro: dict, data_weighted: dict, comp: str):
     
-def show_accuracy(data):
-    
-    df_acc = pd.DataFrame(data)
-    
-    plt.figure(figsize=(8, 5))
-    sns.barplot(data=df_acc, x='Modèle', y='Accuracy', hue='Scaler', palette='Set2')
+    """
+        Affiche un graphique comparatif des scores des modèles avec ou sans traitement.
 
-    plt.title('Accuracy des modèles avec et sans Scaler')
-    plt.ylim(0, 1)
-    plt.ylabel('Accuracy')
-    plt.xlabel('Modèle')
-    plt.legend(title='Données prétraitées')
+        Args:
+            data_accuracy (dict): Résultats d’accuracy.
+            data_macro (dict): Résultats F1 macro-averaged.
+            data_weighted (dict): Résultats F1 weighted.
+            comp (str): Nom du traitement comparé ("Scaler", "LiDAR", etc.)
+
+        Returns:
+            None
+    """
+    
+    def show_accuracy(data: dict, ax, score: str, comp: str):
+        
+        df = pd.DataFrame(data)
+
+        
+        sns.barplot(data=df, x='Modèle', y=score, hue=comp, palette='Set2',ax=ax)
+
+        ax.set_title(score+' des modèles avec et sans '+comp)
+        ax.set_ylim(0, 1)
+        ax.set_ylabel(score)
+        ax.set_xlabel('Modèle')
+        ax.legend(title='Données prétraitées')
+    
+    #figsize=(8, 5)
+    fig, (ax1,ax2,ax3)=plt.subplots(1,3)
+    show_accuracy(data_accuracy, ax1, "Accuracy",comp)
+    show_accuracy(data_macro, ax2, "Macro avg",comp)
+    show_accuracy(data_weighted, ax3, "Weighted avg",comp)
+    
     plt.tight_layout()
     plt.show()
-
+    
