@@ -40,27 +40,22 @@ d_spec= {k : None for k in keys}
 
 LiDAR_keys=['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25']
 
-
+minority=["ACPS","BEsp","FREX","PICE","POTR","SOAR","SOAU"]
+majority=["ABAL","BEPE","COAV","FASY","PIAB","PIUN"]
+family=["CONI","BROA"]
 
 #%% Fonctions
 
 class DataCache:
     
     """
-    Classe de gestion de cache pour le chargement des données HSI, LiDAR et vérité terrain.
+    Cache manager for hyperspectral images (HSI), LiDAR features, and ground truth data.
 
-    Attributs :
-        hsi (dict) : Dictionnaire de cache pour les images HSI (clé : image_id).
-        lidar (dict) : Dictionnaire de cache pour les fichiers LiDAR rasterisés.
-        gt (dict) : Dictionnaire de cache pour les fichiers ground truth (df_pixel, df_tree...).
-        base (Path) : Chemin de base vers le dossier contenant les données brutes.
-
-    Méthodes :
-        get_hsi(image_id) : Charge une image hyperspectrale en mémoire.
-        get_lidar(image_id) : Charge les données LiDAR associées à une image.
-        get_gt(filename) : Charge un fichier .csv de ground truth.
-        clear_all() : Vide tous les caches.
-        clear_hsi(), clear_lidar(), clear_gt() : Vide chaque cache séparément.
+    Attributes:
+        hsi (dict): Cached HSI arrays keyed by image ID.
+        lidar (dict): Cached LiDAR DataFrames keyed by image ID.
+        gt (dict): Cached ground truth DataFrames keyed by filename.
+        base (Path): Base path to the raw data directory.
     """
     
     def __init__(self):
@@ -75,13 +70,13 @@ class DataCache:
     def get_hsi(self, image_id: str):
         
         """
-        Charge et met en cache une image hyperspectrale .tif.
+        Load and cache a hyperspectral image (.tif) by its ID.
 
         Args:
-            image_id (str): Identifiant de la parcelle (ex: "1", "3b", "4").
+            image_id (str): Plot identifier (e.g., "1", "3b").
 
         Returns:
-            np.ndarray: Image hyperspectrale (hauteur x largeur x bandes).
+            np.ndarray: Hyperspectral image array (height x width x bands).
         """
         
         if image_id not in self.hsi:
@@ -92,13 +87,13 @@ class DataCache:
     def get_lidar(self, image_id: str):
         
         """
-        Charge et met en cache les données LiDAR rasterisées (CSV) pour une image donnée.
+        Load and cache LiDAR raster features for a given image.
 
         Args:
-            image_id (str): Identifiant de la parcelle.
+            image_id (str): Plot identifier.
 
         Returns:
-            pd.DataFrame: Données LiDAR rasterisées pour chaque pixel.
+            pd.DataFrame: LiDAR features for each pixel of the image.
         """
         
         if image_id not in self.lidar:
@@ -109,13 +104,13 @@ class DataCache:
     def get_gt(self, filename: str):
         
         """
-        Charge et met en cache un fichier .csv de vérité terrain.
+        Load and cache a ground-truth CSV file by name.
 
         Args:
-            filename (str): Nom du fichier sans extension (ex: "df_pixel", "df_tree").
+            filename (str): CSV file name without extension (e.g., "df_pixel", "df_tree").
 
         Returns:
-            pd.DataFrame: Données du fichier .csv correspondant.
+            pd.DataFrame: Ground truth data from the specified CSV.
         """
         
         if filename not in self.gt:
@@ -126,7 +121,7 @@ class DataCache:
     def clear_all(self):
         
         """
-        Vide tous les caches en mémoire (HSI, LiDAR, ground truth).
+        Clear all cached data (HSI, LiDAR, ground truth).
         """
         self.hsi.clear()
         self.lidar.clear()
@@ -146,3 +141,4 @@ c=DataCache()
 HSI=c.get_hsi
 GT=c.get_gt
 LiD=c.get_lidar
+c.clear_all()
